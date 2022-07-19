@@ -41,7 +41,7 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
         description: str,
         seller: User,
         body: Optional[str] = None,
-        image: Optional[str] = None,
+        image: Optional[str] = DEFAULT_IMAGE,
         tags: Optional[Sequence[str]] = None,
     ) -> Item:
         async with self.connection.transaction():
