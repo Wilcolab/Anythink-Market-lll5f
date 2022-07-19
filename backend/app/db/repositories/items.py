@@ -7,9 +7,9 @@ from app.db.errors import EntityDoesNotExist
 from app.db.queries.queries import queries
 from app.db.queries.tables import (
     Parameter,
+    favorites,
     items,
     items_to_tags,
-    favorites,
     tags as tags_table,
     users,
 )
@@ -21,11 +21,13 @@ from app.models.domain.users import User
 
 SELLER_USERNAME_ALIAS = "seller_username"
 SLUG_ALIAS = "slug"
+DEFAULT_IMAGE = "/placeholder.png"
 
 CAMEL_OR_SNAKE_CASE_TO_WORDS = r"^[a-z\d_\-]+|[A-Z\d_\-][^A-Z\d_\-]*"
 
 
 class ItemsRepository(BaseRepository):  # noqa: WPS214
+
     def __init__(self, conn: Connection) -> None:
         super().__init__(conn)
         self._profiles_repo = ProfilesRepository(conn)
@@ -50,8 +52,7 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
                 description=description,
                 body=body,
                 seller_username=seller.username,
-                image=image
-            )
+                image=image)
 
             if tags:
                 await self._tags_repo.create_tags_that_dont_exist(tags=tags)
@@ -114,9 +115,7 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
         query_params_count = 0
 
         # fmt: off
-        query = Query.from_(
-            items,
-        ).select(
+        query = Query.from_(items, ).select(
             items.id,
             items.slug,
             items.title,
@@ -125,15 +124,8 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
             items.image,
             items.created_at,
             items.updated_at,
-            Query.from_(
-                users,
-            ).where(
-                users.id == items.seller_id,
-            ).select(
-                users.username,
-            ).as_(
-                SELLER_USERNAME_ALIAS,
-            ),
+            Query.from_(users, ).where(users.id == items.seller_id, ).select(
+                users.username, ).as_(SELLER_USERNAME_ALIAS, ),
         )
         # fmt: on
 
@@ -142,19 +134,11 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
             query_params_count += 1
 
             # fmt: off
-            query = query.join(
-                items_to_tags,
-            ).on(
-                (items.id == items_to_tags.item_id) & (
-                    items_to_tags.tag == Query.from_(
-                        tags_table,
-                    ).where(
-                        tags_table.tag == Parameter(query_params_count),
-                    ).select(
-                        tags_table.tag,
-                    )
-                ),
-            )
+            query = query.join(items_to_tags, ).on(
+                (items.id == items_to_tags.item_id) &
+                (items_to_tags.tag == Query.from_(tags_table, ).where(
+                    tags_table.tag == Parameter(query_params_count), ).select(
+                        tags_table.tag, )), )
             # fmt: on
 
         if seller:
@@ -162,19 +146,11 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
             query_params_count += 1
 
             # fmt: off
-            query = query.join(
-                users,
-            ).on(
-                (items.seller_id == users.id) & (
-                    users.id == Query.from_(
-                        users,
-                    ).where(
-                        users.username == Parameter(query_params_count),
-                    ).select(
-                        users.id,
-                    )
-                ),
-            )
+            query = query.join(users, ).on(
+                (items.seller_id == users.id) &
+                (users.id == Query.from_(users, ).where(
+                    users.username == Parameter(query_params_count), ).select(
+                        users.id, )), )
             # fmt: on
 
         if favorited:
@@ -182,30 +158,23 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
             query_params_count += 1
 
             # fmt: off
-            query = query.join(
-                favorites,
-            ).on(
-                (items.id == favorites.item_id) & (
-                    favorites.user_id == Query.from_(
-                        users,
-                    ).where(
-                        users.username == Parameter(query_params_count),
-                    ).select(
-                        users.id,
-                    )
-                ),
-            )
+            query = query.join(favorites, ).on(
+                (items.id == favorites.item_id) &
+                (favorites.user_id == Query.from_(users, ).where(
+                    users.username == Parameter(query_params_count), ).select(
+                        users.id, )), )
             # fmt: on
 
         query = query.limit(Parameter(query_params_count + 1)).offset(
-            Parameter(query_params_count + 2),
-        )
+            Parameter(query_params_count + 2), )
         query_params.extend([limit, offset])
 
-        items_rows = await self.connection.fetch(query.get_sql(), *query_params)
+        items_rows = await self.connection.fetch(query.get_sql(),
+                                                 *query_params)
 
         return [
-            await self.get_item_by_slug(slug=item_row['slug'], requested_user=requested_user)
+            await self.get_item_by_slug(slug=item_row['slug'],
+                                        requested_user=requested_user)
             for item_row in items_rows
         ]
 
@@ -228,8 +197,7 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
                 slug=item_row[SLUG_ALIAS],
                 seller_username=item_row[SELLER_USERNAME_ALIAS],
                 requested_user=user,
-            )
-            for item_row in items_rows
+            ) for item_row in items_rows
         ]
 
     async def get_item_by_slug(
@@ -247,7 +215,8 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
                 requested_user=requested_user,
             )
 
-        raise EntityDoesNotExist("item with slug {0} does not exist".format(slug))
+        raise EntityDoesNotExist(
+            "item with slug {0} does not exist".format(slug))
 
     async def get_tags_for_item_by_slug(self, *, slug: str) -> List[str]:
         tag_rows = await queries.get_tags_for_item_by_slug(
@@ -257,18 +226,16 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
         return [row["tag"] for row in tag_rows]
 
     async def get_favorites_count_for_item_by_slug(self, *, slug: str) -> int:
-        return (
-            await queries.get_favorites_count_for_item(self.connection, slug=slug)
-        )["favorites_count"]
+        return (await queries.get_favorites_count_for_item(
+            self.connection, slug=slug))["favorites_count"]
 
-    async def is_item_favorited_by_user(self, *, slug: str, user: User) -> bool:
-        return (
-            await queries.is_item_in_favorites(
-                self.connection,
-                username=user.username,
-                slug=slug,
-            )
-        )["favorited"]
+    async def is_item_favorited_by_user(self, *, slug: str,
+                                        user: User) -> bool:
+        return (await queries.is_item_in_favorites(
+            self.connection,
+            username=user.username,
+            slug=slug,
+        ))["favorited"]
 
     async def add_item_into_favorites(self, *, item: Item, user: User) -> None:
         await queries.add_item_to_favorites(
@@ -297,7 +264,8 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
         seller_username: str,
         requested_user: Optional[User],
     ) -> Item:
-        title_query = Query.from_(items).select(items.title).where(items.slug == slug)
+        title_query = Query.from_(items).select(
+            items.title).where(items.slug == slug)
         result_rows = await self.connection.fetch(title_query.get_sql())
         if not len(result_rows):
             raise Exception(f'No item with slug {slug}')
@@ -309,27 +277,28 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
             title=title,
             description=item_row["description"],
             body=item_row["body"],
-            image=item_row["image"],
+            image=item_row["image"] if item_row["image"] else DEFAULT_IMAGE,
             seller=await self._profiles_repo.get_profile_by_username(
                 username=seller_username,
                 requested_user=requested_user,
             ),
             tags=await self.get_tags_for_item_by_slug(slug=slug),
-            favorites_count=await self.get_favorites_count_for_item_by_slug(
-                slug=slug,
-            ),
+            favorites_count=await
+            self.get_favorites_count_for_item_by_slug(slug=slug, ),
             favorited=await self.is_item_favorited_by_user(
                 slug=slug,
                 user=requested_user,
-            )
-            if requested_user
-            else False,
+            ) if requested_user else False,
             created_at=item_row["created_at"],
             updated_at=item_row["updated_at"],
         )
 
-    async def _link_item_with_tags(self, *, slug: str, tags: Sequence[str]) -> None:
+    async def _link_item_with_tags(self, *, slug: str,
+                                   tags: Sequence[str]) -> None:
         await queries.add_tags_to_item(
             self.connection,
-            [{SLUG_ALIAS: slug, "tag": tag} for tag in tags],
+            [{
+                SLUG_ALIAS: slug,
+                "tag": tag
+            } for tag in tags],
         )
