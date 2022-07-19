@@ -21,7 +21,6 @@ from app.models.domain.users import User
 
 SELLER_USERNAME_ALIAS = "seller_username"
 SLUG_ALIAS = "slug"
-DEFAULT_IMAGE = "/placeholder.png"
 
 CAMEL_OR_SNAKE_CASE_TO_WORDS = r"^[a-z\d_\-]+|[A-Z\d_\-][^A-Z\d_\-]*"
 
@@ -277,7 +276,7 @@ class ItemsRepository(BaseRepository):  # noqa: WPS214
             title=title,
             description=item_row["description"],
             body=item_row["body"],
-            image=item_row["image"] if item_row["image"] else DEFAULT_IMAGE,
+            image=item_row["image"],
             seller=await self._profiles_repo.get_profile_by_username(
                 username=seller_username,
                 requested_user=requested_user,
