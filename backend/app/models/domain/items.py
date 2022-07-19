@@ -4,8 +4,6 @@ from app.models.common import DateTimeModelMixin, IDModelMixin
 from app.models.domain.profiles import Profile
 from app.models.domain.rwmodel import RWModel
 
-DEFAULT_IMAGE = "/placeholder.png"
-
 
 class Item(IDModelMixin, DateTimeModelMixin, RWModel):
     slug: str
@@ -15,5 +13,5 @@ class Item(IDModelMixin, DateTimeModelMixin, RWModel):
     seller: Profile
     favorited: bool
     favorites_count: int
-    image: Optional[str] = DEFAULT_IMAGE
+    image: Optional[str]
     body: Optional[str]
